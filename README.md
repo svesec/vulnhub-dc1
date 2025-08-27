@@ -48,3 +48,8 @@ Open ports:
 
 Initial observation:
 The Drupal CMS on port 80 appears to be the main attack surface. The robots.txt file reveals multiple standard Drupal directories and files (e.g., /CHANGELOG.txt, /install.php), which may expose the exact version.
+
+![Nmap scan](./images/01_nmap.png)
+
+_The scan reveals SSH (22), HTTP (Drupal, port 80), and RPCBind (111) as the main exposed services._
+
