@@ -1,4 +1,4 @@
-# VulnHub – DC-1 (Linux, Easy) (WIP)
+# VulnHub – DC-1 (Linux, Easy)
 
 ## Table of Contents
 - [General Info](#general-info)
